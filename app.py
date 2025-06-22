@@ -6,7 +6,7 @@ st.set_page_config(page_title="アクセスカウンター", layout="centered")
 st.title("📊 アクセスカウンター")
 
 # DB接続関数
-def connect_to_db():
+def connect_to_db_old():
     try:
         conn = psycopg2.connect(
             host=st.secrets["db_host"],
@@ -14,6 +14,27 @@ def connect_to_db():
             user=st.secrets["db_user"],
             password=st.secrets["db_password"],
             port=st.secrets["db_port"],
+            sslmode="require"
+        )
+        return conn
+    except Exception as e:
+        st.error(f"❌ DB接続失敗: {e}")
+        return None
+
+def connect_to_db():
+    # Render 上では st.secrets ではなく os.environ から読む
+    host = os.environ.get("db_host")
+    dbname = os.environ.get("db_name")
+    user = os.environ.get("db_user")
+    password = os.environ.get("db_password")
+    port = os.environ.get("db_port", "5432")
+    try:
+        conn = psycopg2.connect(
+            host=host,
+            dbname=dbname,
+            user=user,
+            password=password,
+            port=port,
             sslmode="require"
         )
         return conn
