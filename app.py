@@ -1,44 +1,66 @@
 import streamlit as st
-import sqlite3
+import psycopg2
+from datetime import datetime
 
-# DB接続とテーブル作成（初回のみ）
-def init_db():
-    conn = sqlite3.connect('counter.db')
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS access_count (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            count INTEGER
+st.set_page_config(page_title="アクセスカウンター", layout="centered")
+st.title("📊 アクセスカウンター")
+
+# DB接続関数
+def connect_to_db():
+    try:
+        conn = psycopg2.connect(
+            host=st.secrets["db_host"],
+            dbname=st.secrets["db_name"],
+            user=st.secrets["db_user"],
+            password=st.secrets["db_password"],
+            port=st.secrets["db_port"],
+            sslmode="require"
         )
-    ''')
-    # 初回レコードがない場合は追加
-    c.execute('SELECT COUNT(*) FROM access_count')
-    if c.fetchone()[0] == 0:
-        c.execute('INSERT INTO access_count (count) VALUES (0)')
-    conn.commit()
+        return conn
+    except Exception as e:
+        st.error(f"❌ DB接続失敗: {e}")
+        return None
+
+# テーブル作成（存在しなければ）
+def create_table_if_not_exists(conn):
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS access_log (
+                    id SERIAL PRIMARY KEY,
+                    accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            conn.commit()
+    except Exception as e:
+        st.error(f"❌ テーブル作成エラー: {e}")
+
+# アクセス記録
+def log_access(conn):
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO access_log DEFAULT VALUES;")
+            conn.commit()
+    except Exception as e:
+        st.error(f"❌ ログ記録エラー: {e}")
+
+# 総アクセス数を取得
+def get_access_count(conn):
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM access_log;")
+            count = cur.fetchone()[0]
+            return count
+    except Exception as e:
+        st.error(f"❌ カウント取得エラー: {e}")
+        return 0
+
+# 実行処理
+conn = connect_to_db()
+
+if conn:
+    create_table_if_not_exists(conn)  # ← ここで自動作成！
+    log_access(conn)
+    count = get_access_count(conn)
+    st.metric("📈 総アクセス数", f"{count} 回")
     conn.close()
-
-# カウントを1つ増やす
-def increment_count():
-    conn = sqlite3.connect('counter.db')
-    c = conn.cursor()
-    c.execute('UPDATE access_count SET count = count + 1 WHERE id = 1')
-    conn.commit()
-    conn.close()
-
-# カウントを取得する
-def get_count():
-    conn = sqlite3.connect('counter.db')
-    c = conn.cursor()
-    c.execute('SELECT count FROM access_count WHERE id = 1')
-    result = c.fetchone()[0]
-    conn.close()
-    return result
-
-# メイン処理
-init_db()
-increment_count()
-count = get_count()
-
-st.title("アクセスカウンター")
-st.write(f"このページは **{count} 回** アクセスされました！")
