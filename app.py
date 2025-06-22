@@ -24,11 +24,11 @@ def connect_to_db_old():
 
 def connect_to_db():
     # Render 上では st.secrets ではなく os.environ から読む
-    host = os.environ.get("db_host")
-    dbname = os.environ.get("db_name")
-    user = os.environ.get("db_user")
-    password = os.environ.get("db_password")
-    port = os.environ.get("db_port", "5432")
+    host = "dpg-d1bm5j95pdvs73e19cgg-a.oregon-postgres.render.com"
+    dbname = "page_access_db_eak4"
+    user = "user123"
+    password = "2KB1FZK3uwWrtmaeYgxiOvGqg79PODIX"
+    port = "5432"
     try:
         conn = psycopg2.connect(
             host=host,
