@@ -43,46 +43,53 @@ def connect_to_db():
         st.error(f"❌ DB接続失敗: {e}")
         return None
 
-# テーブル作成（存在しなければ）
+# テーブル作成（初回のみ）
 def create_table_if_not_exists(conn):
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS access_log (
-                    id SERIAL PRIMARY KEY,
-                    accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            conn.commit()
-    except Exception as e:
-        st.error(f"❌ テーブル作成エラー: {e}")
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS access_log (
+                id SERIAL PRIMARY KEY,
+                accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        conn.commit()
 
-# アクセス記録
+# アクセスログ記録
 def log_access(conn):
-    try:
-        with conn.cursor() as cur:
-            cur.execute("INSERT INTO access_log DEFAULT VALUES;")
-            conn.commit()
-    except Exception as e:
-        st.error(f"❌ ログ記録エラー: {e}")
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO access_log DEFAULT VALUES;")
+        conn.commit()
 
-# 総アクセス数を取得
-def get_access_count(conn):
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM access_log;")
-            count = cur.fetchone()[0]
-            return count
-    except Exception as e:
-        st.error(f"❌ カウント取得エラー: {e}")
-        return 0
+# 1時間単位でアクセスを集計
+def get_hourly_counts(conn):
+    query = """
+        SELECT
+            date_trunc('hour', accessed_at) AS hour,
+            COUNT(*) AS access_count
+        FROM access_log
+        GROUP BY hour
+        ORDER BY hour DESC
+        LIMIT 24;  -- 最新24時間分だけ
+    """
+    df = pd.read_sql(query, conn)
+    return df.sort_values("hour")  # 昇順で表示
 
-# 実行処理
+# 実行ブロック
 conn = connect_to_db()
-
 if conn:
-    create_table_if_not_exists(conn)  # ← ここで自動作成！
+    create_table_if_not_exists(conn)
     log_access(conn)
-    count = get_access_count(conn)
-    st.metric("📈 総アクセス数", f"{count} 回")
+    df = get_hourly_counts(conn)
     conn.close()
+
+    # 表示
+    st.subheader("🕒 時間帯別アクセス数（最新24時間）")
+    st.dataframe(df, use_container_width=True)
+
+    chart = alt.Chart(df).mark_bar().encode(
+        x=alt.X("hour:T", title="時間（hour）"),
+        y=alt.Y("access_count:Q", title="アクセス数"),
+        tooltip=["hour:T", "access_count"]
+    ).properties(height=400)
+
+    st.altair_chart(chart, use_container_width=True)
