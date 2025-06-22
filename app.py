@@ -2,9 +2,11 @@ import streamlit as st
 import psycopg2
 from datetime import datetime
 import os
+import pandas as pd
+import altair as alt
 
-st.set_page_config(page_title="アクセスカウンター", layout="centered")
-st.title("📊 アクセスカウンター")
+st.set_page_config(page_title="時間別アクセスカウント", layout="wide")
+st.title("📊 1時間ごとのアクセス集計")
 
 # DB接続関数
 def connect_to_db_old():
