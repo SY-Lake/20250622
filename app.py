@@ -1,6 +1,7 @@
 import streamlit as st
 import psycopg2
 from datetime import datetime
+import os
 
 st.set_page_config(page_title="アクセスカウンター", layout="centered")
 st.title("📊 アクセスカウンター")
